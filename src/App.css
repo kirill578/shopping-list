@@ -248,6 +248,55 @@ body {
   gap: 12px;
 }
 
+/* Thin Item Card for collapsed completed items */
+.thin-item-card {
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 8px 12px;
+  border: 1px solid #e9ecef;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+}
+
+.thin-item-card.checked {
+  border-color: #c6f6d5;
+  background: #f0fff4;
+}
+
+.thin-item-card .item-checkbox-container {
+  margin-top: 0;
+}
+
+.thin-item-card .checkmark {
+  width: 18px;
+  height: 18px;
+  border-width: 1px;
+}
+
+.thin-item-card .checkmark::after {
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 9px;
+  border-width: 0 1px 1px 0;
+}
+
+.thin-item-title {
+  flex: 1;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #4a5568;
+  text-decoration: line-through;
+  opacity: 0.8;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .item-card {
   background: white;
   border-radius: 0;

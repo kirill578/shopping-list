@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { CartService } from "../services/cartService";
 import { CategoryService } from "../services/categoryService";
 import { CartState, CartItem } from "../types/cart";
-import { ItemCard } from "./ItemCard";
+import { ItemCard, ThinItemCard } from "./ItemCard";
 import { TopBar } from "./TopBar";
 
 interface CategoryHeaderProps {
@@ -367,7 +367,7 @@ export const HomePage: React.FC = () => {
   };
 
   const visibleItemsByCategory = useMemo(() => {
-    if (!cartState) return { active: {}, completed: {}, all: {} };
+    if (!cartState) return { active: {}, completed: {}, all: {}, mixed: {} };
 
     const { completedView, checkedItems, itemOrder, cart } = cartState;
     const allItems = cart.items.reduce((acc, item) => {
@@ -378,29 +378,35 @@ export const HomePage: React.FC = () => {
     const active: Record<string, CartItem[]> = {};
     const completed: Record<string, CartItem[]> = {};
     const all: Record<string, CartItem[]> = {};
+    const mixed: Record<string, CartItem[]> = {}; // For collapse view - items in original order
 
     Object.keys(itemOrder).forEach((catId) => {
       const items = itemOrder[catId]
         .map((asin) => allItems[asin])
         .filter(Boolean);
 
-      // For "all" view, preserve original order
       if (completedView === "all") {
-        all[catId] = items; // Keep all items in original order
+        // "all" view: preserve original order
+        all[catId] = items;
         active[catId] = [];
         completed[catId] = [];
+        mixed[catId] = [];
+      } else if (completedView === "collapse") {
+        // "collapse" view: items in original order, will render thin completed items inline
+        mixed[catId] = items;
+        active[catId] = [];
+        completed[catId] = [];
+        all[catId] = [];
       } else {
-        // For other views, separate active and completed
+        // "hide" view: separate active and completed, show completed in collapsible section
         active[catId] = items.filter((item) => !checkedItems[item.asin]);
         completed[catId] = items.filter((item) => checkedItems[item.asin]);
-
-        if (completedView === "hide") {
-          completed[catId] = [];
-        }
+        all[catId] = [];
+        mixed[catId] = [];
       }
     });
 
-    return { active, completed, all };
+    return { active, completed, all, mixed };
   }, [cartState]);
 
   if (loading) {
@@ -514,12 +520,16 @@ export const HomePage: React.FC = () => {
             const completedItems =
               visibleItemsByCategory.completed[categoryId] || [];
             const allItems = visibleItemsByCategory.all[categoryId] || [];
+            const mixedItems = visibleItemsByCategory.mixed[categoryId] || [];
+            
             const hasItems =
               cartState.completedView === "all"
                 ? allItems.length > 0
+                : cartState.completedView === "collapse"
+                ? mixedItems.length > 0
                 : activeItems.length > 0 || completedItems.length > 0;
 
-            if (!category || (!hasItems && cartState.completedView === "hide"))
+            if (!category || !hasItems)
               return null;
 
             return (
@@ -529,6 +539,8 @@ export const HomePage: React.FC = () => {
                     categoryName={`${category.name} (${
                       cartState.completedView === "all"
                         ? allItems.length
+                        : cartState.completedView === "collapse"
+                        ? mixedItems.length
                         : activeItems.length + completedItems.length
                     })`}
                     onRename={() => handleRenameCategory(categoryId)}
@@ -542,10 +554,13 @@ export const HomePage: React.FC = () => {
                     {category.name} (
                     {cartState.completedView === "all"
                       ? allItems.length
+                      : cartState.completedView === "collapse"
+                      ? mixedItems.length
                       : activeItems.length + completedItems.length}
                     )
                     {completedItems.length > 0 &&
-                      cartState.completedView !== "all" && (
+                      cartState.completedView !== "all" && 
+                      cartState.completedView !== "collapse" && (
                         <span className="completed-count">
                           {" "}
                           - {completedItems.length} done
@@ -590,8 +605,61 @@ export const HomePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Active Items for other views */}
-                {cartState.completedView !== "all" && (
+                {/* Items in original order for "collapse" view - thin items for completed */}
+                {cartState.completedView === "collapse" && (
+                  <div className="category-items">
+                    {mixedItems.map((item: CartItem) => {
+                      const isCompleted = cartState.checkedItems[item.asin] || false;
+                      
+                      if (isCompleted) {
+                        return (
+                          <ThinItemCard
+                            key={item.asin}
+                            item={item}
+                            checked={true}
+                            onCheck={(checked) =>
+                              handleItemCheck(item.asin, checked)
+                            }
+                          />
+                        );
+                      } else {
+                        return (
+                          <ItemCard
+                            key={item.asin}
+                            item={item}
+                            checked={false}
+                            quantity={
+                              cartState.updatedQuantities[item.asin] ||
+                              item.quantity
+                            }
+                            onCheck={(checked) =>
+                              handleItemCheck(item.asin, checked)
+                            }
+                            onQuantityChange={(quantity) =>
+                              handleQuantityChange(item.asin, quantity)
+                            }
+                            editMode={cartState.editMode}
+                            categories={Object.values(cartState.categories)}
+                            itemCategoryId={cartState.itemCategory[item.asin]}
+                            onMoveItem={(direction) =>
+                              handleMoveItem(item.asin, categoryId, direction)
+                            }
+                            onChangeCategory={(newCatId) =>
+                              handleChangeItemCategory(
+                                item.asin,
+                                categoryId,
+                                newCatId
+                              )
+                            }
+                          />
+                        );
+                      }
+                    })}
+                  </div>
+                )}
+
+                {/* Active Items for "hide" view */}
+                {cartState.completedView === "hide" && (
                   <div className="category-items">
                     {activeItems.map((item: CartItem) => (
                       <ItemCard
@@ -626,9 +694,9 @@ export const HomePage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Completed Items for collapse view */}
+                {/* Completed Items for "hide" view - collapsible section */}
                 {completedItems.length > 0 &&
-                  cartState.completedView === "collapse" && (
+                  cartState.completedView === "hide" && (
                     <details className="completed-section">
                       <summary className="completed-summary">
                         {completedItems.length} completed item

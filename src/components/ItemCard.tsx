@@ -14,6 +14,38 @@ interface ItemCardProps {
   onChangeCategory: (newCategoryId: string) => void;
 }
 
+interface ThinItemCardProps {
+  item: CartItem;
+  checked: boolean;
+  onCheck: (checked: boolean) => void;
+}
+
+export const ThinItemCard: React.FC<ThinItemCardProps> = ({
+  item,
+  checked,
+  onCheck,
+}) => {
+  return (
+    <div className={`thin-item-card ${checked ? "checked" : ""}`}>
+      <div className="item-checkbox-container">
+        <input
+          type="checkbox"
+          className="item-checkbox"
+          checked={checked}
+          onChange={(e) => onCheck(e.target.checked)}
+          id={`check-thin-${item.asin}`}
+        />
+        <label htmlFor={`check-thin-${item.asin}`} className="checkbox-label">
+          <span className="checkmark"></span>
+        </label>
+      </div>
+      <div className="thin-item-title">
+        {item.title}
+      </div>
+    </div>
+  );
+};
+
 export const ItemCard: React.FC<ItemCardProps> = ({
   item,
   checked,
