@@ -63,6 +63,12 @@ export const CartSchema = z
   })
   .passthrough(); // Allow unknown fields to be ignored
 
+// New Category Schema
+export const CategorySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
 // Cart state for local storage
 export const CartStateSchema = z
   .object({
@@ -70,6 +76,16 @@ export const CartStateSchema = z
     checkedItems: z.record(z.string(), z.boolean()), // asin -> checked
     updatedQuantities: z.record(z.string(), z.number()), // asin -> updated quantity
     lastUpdated: z.number(),
+
+    // New fields for categories and ordering
+    categories: z.record(z.string(), CategorySchema).default({}),
+    categoryOrder: z.array(z.string()).default([]),
+    itemCategory: z.record(z.string(), z.string()).default({}), // asin -> categoryId
+    itemOrder: z.record(z.string(), z.array(z.string())).default({}), // categoryId -> asin[]
+
+    // UI state
+    editMode: z.boolean().default(false),
+    completedView: z.enum(["all", "hide", "collapse"]).default("all"),
   })
   .passthrough();
 
@@ -78,3 +94,4 @@ export type CartItem = z.infer<typeof CartItemSchema>;
 export type VendorCart = z.infer<typeof VendorCartSchema>;
 export type Cart = z.infer<typeof CartSchema>;
 export type CartState = z.infer<typeof CartStateSchema>;
+export type Category = z.infer<typeof CategorySchema>;

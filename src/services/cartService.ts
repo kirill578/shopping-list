@@ -5,6 +5,12 @@ import {
   CartState,
   CartItem,
 } from "../types/cart";
+import {
+  CategoryService,
+  defaultCategories,
+  defaultCategoryOrder,
+  UNCATEGORIZED_ID,
+} from "./categoryService";
 
 export class CartService {
   private static readonly API_BASE = "https://share-a-cart.com/api/get/r/cart";
@@ -43,18 +49,40 @@ export class CartService {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            `Cart "${cartId}" not found. Please check the cart ID or URL.`
+          );
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
 
+      // Log the actual response for debugging
+      console.log("API Response:", data);
+
+      // Check if response is empty or null
+      if (!data || typeof data !== "object") {
+        throw new Error(`Invalid response from API: ${JSON.stringify(data)}`);
+      }
+
+      // Check if API returned an error
+      if (data.error) {
+        throw new Error(
+          `API Error: ${data.error}. The cart "${cartId}" may have expired or doesn't exist.`
+        );
+      }
+
       // Validate with Zod schema
       const result = CartSchema.safeParse(data);
 
       if (!result.success) {
-        console.warn("Cart data validation issues:", result.error);
-        // Still try to use the data, Zod will ignore unknown fields
-        return CartSchema.parse(data);
+        console.error("Cart data validation failed:", result.error);
+        console.error("Received data:", data);
+        throw new Error(
+          `Invalid cart data format. Please check if the cart ID "${cartId}" is correct.`
+        );
       }
 
       return result.data;
@@ -82,6 +110,15 @@ export class CartService {
       if (!result.success) {
         console.warn("Invalid stored cart state, clearing:", result.error);
         localStorage.removeItem(key);
+
+        // Attempt to recover checked items from old structure if possible
+        if ("checkedItems" in parsed) {
+          localStorage.setItem(
+            `${cartId}-checked`,
+            JSON.stringify({ checkedItems: parsed.checkedItems })
+          );
+        }
+
         return null;
       }
 
@@ -98,7 +135,19 @@ export class CartService {
   static saveCartState(cartId: string, state: CartState): void {
     try {
       const key = `${cartId}-state`;
+      const checkedKey = `${cartId}-checked`;
+
+      // Save full state
       localStorage.setItem(key, JSON.stringify(state));
+
+      // Save minimal checked items backup for recovery
+      localStorage.setItem(
+        checkedKey,
+        JSON.stringify({
+          checkedItems: state.checkedItems,
+          lastUpdated: state.lastUpdated,
+        })
+      );
     } catch (error) {
       console.error("Error saving cart state:", error);
     }
@@ -108,19 +157,35 @@ export class CartService {
    * Initialize or update cart state
    */
   static initializeCartState(cart: Cart): CartState {
-    const initialCheckedItems: Record<string, boolean> = {};
+    const itemCategory: Record<string, string> = {};
+    const itemOrder: Record<string, string[]> = {};
     const initialQuantities: Record<string, number> = {};
 
+    defaultCategoryOrder.forEach((id) => {
+      itemOrder[id] = [];
+    });
+
     cart.items.forEach((item: CartItem) => {
-      initialCheckedItems[item.asin] = false;
+      const categoryId = CategoryService.mapItemToCategory(item);
+      itemCategory[item.asin] = categoryId;
+      if (!itemOrder[categoryId]) {
+        itemOrder[categoryId] = [];
+      }
+      itemOrder[categoryId].push(item.asin);
       initialQuantities[item.asin] = item.quantity;
     });
 
     return {
       cart,
-      checkedItems: initialCheckedItems,
+      checkedItems: {},
       updatedQuantities: initialQuantities,
       lastUpdated: Date.now(),
+      categories: defaultCategories,
+      categoryOrder: defaultCategoryOrder,
+      itemCategory: itemCategory,
+      itemOrder: itemOrder,
+      editMode: false,
+      completedView: "all",
     };
   }
 
@@ -128,28 +193,37 @@ export class CartService {
    * Get or fetch cart data
    */
   static async getOrFetchCart(cartId: string): Promise<CartState> {
-    // Try to get from localStorage first
     const stored = this.getCartState(cartId);
 
     if (stored) {
-      // Check if data is not too old (24 hours)
-      const isStale = Date.now() - stored.lastUpdated > 24 * 60 * 60 * 1000;
-
-      if (!isStale) {
-        return stored;
-      }
+      return stored;
     }
 
     // Fetch fresh data from API
     const cart = await this.fetchCart(cartId);
     const newState = this.initializeCartState(cart);
 
-    // Preserve user selections if we had old state
+    // Check for recovered checked items
+    const checkedItemsFallback = localStorage.getItem(`${cartId}-checked`);
+    if (checkedItemsFallback) {
+      try {
+        const parsed = JSON.parse(checkedItemsFallback);
+        if (parsed && typeof parsed.checkedItems === "object") {
+          newState.checkedItems = parsed.checkedItems;
+        }
+      } catch (e) {
+        console.error("Error parsing checked items fallback", e);
+      } finally {
+        localStorage.removeItem(`${cartId}-checked`);
+      }
+    }
+
+    // Preserve user selections if we had old state from a previous version
     if (stored) {
       newState.checkedItems = { ...stored.checkedItems };
       newState.updatedQuantities = { ...stored.updatedQuantities };
 
-      // Remove selections for items that no longer exist
+      // Re-map categories and order, but preserve checks and quantities
       const currentAsins = new Set(cart.items.map((item) => item.asin));
       Object.keys(newState.checkedItems).forEach((asin) => {
         if (!currentAsins.has(asin)) {

@@ -1,5 +1,5 @@
-import React from 'react';
-import { CartItem } from '../types/cart';
+import React from "react";
+import { CartItem, Category } from "../types/cart";
 
 interface ItemCardProps {
   item: CartItem;
@@ -7,6 +7,11 @@ interface ItemCardProps {
   quantity: number;
   onCheck: (checked: boolean) => void;
   onQuantityChange: (quantity: number) => void;
+  editMode: boolean;
+  categories: Category[];
+  itemCategoryId: string;
+  onMoveItem: (direction: "up" | "down") => void;
+  onChangeCategory: (newCategoryId: string) => void;
 }
 
 export const ItemCard: React.FC<ItemCardProps> = ({
@@ -15,6 +20,11 @@ export const ItemCard: React.FC<ItemCardProps> = ({
   quantity,
   onCheck,
   onQuantityChange,
+  editMode,
+  categories,
+  itemCategoryId,
+  onMoveItem,
+  onChangeCategory,
 }) => {
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newQuantity = Math.max(0, parseInt(e.target.value) || 0);
@@ -31,12 +41,32 @@ export const ItemCard: React.FC<ItemCardProps> = ({
 
   const openItemLink = () => {
     if (item.originalUrl) {
-      window.open(item.originalUrl, '_blank', 'noopener,noreferrer');
+      window.open(item.originalUrl, "_blank", "noopener,noreferrer");
     }
   };
 
   return (
-    <div className={`item-card ${checked ? 'checked' : ''}`}>
+    <div className={`item-card ${checked ? "checked" : ""}`}>
+      {editMode && (
+        <div className="item-edit-controls">
+          <div className="item-reorder-controls">
+            <button onClick={() => onMoveItem("up")}>↑</button>
+            <button onClick={() => onMoveItem("down")}>↓</button>
+          </div>
+          <div className="item-category-select">
+            <select
+              onChange={(e) => onChangeCategory(e.target.value)}
+              value={itemCategoryId}
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
       <div className="item-checkbox-container">
         <input
           type="checkbox"
@@ -58,7 +88,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           loading="lazy"
           onError={(e) => {
             const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
+            target.style.display = "none";
           }}
         />
       </div>
@@ -77,19 +107,19 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             )}
           </div>
         </div>
-        
+
         <div className="item-actions">
           <div className="item-price">
             <span className="currency">{item.ccyS}</span>
             <span className="price">{item.price}</span>
           </div>
-          
+
           <div className="quantity-controls">
             <button
               type="button"
               className="quantity-btn decrease"
               onClick={decrementQuantity}
-              disabled={quantity <= 0}
+              disabled={quantity <= 0 || !editMode}
               aria-label="Decrease quantity"
             >
               -
@@ -102,12 +132,14 @@ export const ItemCard: React.FC<ItemCardProps> = ({
               min="0"
               max="999"
               aria-label="Quantity"
+              disabled={!editMode}
             />
             <button
               type="button"
               className="quantity-btn increase"
               onClick={incrementQuantity}
               aria-label="Increase quantity"
+              disabled={!editMode}
             >
               +
             </button>
