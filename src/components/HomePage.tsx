@@ -367,7 +367,7 @@ export const HomePage: React.FC = () => {
   };
 
   const visibleItemsByCategory = useMemo(() => {
-    if (!cartState) return { active: {}, completed: {} };
+    if (!cartState) return { active: {}, completed: {}, all: {} };
 
     const { completedView, checkedItems, itemOrder, cart } = cartState;
     const allItems = cart.items.reduce((acc, item) => {
@@ -377,21 +377,30 @@ export const HomePage: React.FC = () => {
 
     const active: Record<string, CartItem[]> = {};
     const completed: Record<string, CartItem[]> = {};
+    const all: Record<string, CartItem[]> = {};
 
     Object.keys(itemOrder).forEach((catId) => {
       const items = itemOrder[catId]
         .map((asin) => allItems[asin])
         .filter(Boolean);
 
-      active[catId] = items.filter((item) => !checkedItems[item.asin]);
-      completed[catId] = items.filter((item) => checkedItems[item.asin]);
-
-      if (completedView === "hide") {
+      // For "all" view, preserve original order
+      if (completedView === "all") {
+        all[catId] = items; // Keep all items in original order
+        active[catId] = [];
         completed[catId] = [];
+      } else {
+        // For other views, separate active and completed
+        active[catId] = items.filter((item) => !checkedItems[item.asin]);
+        completed[catId] = items.filter((item) => checkedItems[item.asin]);
+
+        if (completedView === "hide") {
+          completed[catId] = [];
+        }
       }
     });
 
-    return { active, completed };
+    return { active, completed, all };
   }, [cartState]);
 
   if (loading) {
@@ -504,8 +513,11 @@ export const HomePage: React.FC = () => {
             const activeItems = visibleItemsByCategory.active[categoryId] || [];
             const completedItems =
               visibleItemsByCategory.completed[categoryId] || [];
+            const allItems = visibleItemsByCategory.all[categoryId] || [];
             const hasItems =
-              activeItems.length > 0 || completedItems.length > 0;
+              cartState.completedView === "all"
+                ? allItems.length > 0
+                : activeItems.length > 0 || completedItems.length > 0;
 
             if (!category || (!hasItems && cartState.completedView === "hide"))
               return null;
@@ -515,7 +527,9 @@ export const HomePage: React.FC = () => {
                 {cartState.editMode ? (
                   <CategoryHeader
                     categoryName={`${category.name} (${
-                      activeItems.length + completedItems.length
+                      cartState.completedView === "all"
+                        ? allItems.length
+                        : activeItems.length + completedItems.length
                     })`}
                     onRename={() => handleRenameCategory(categoryId)}
                     onDelete={() => handleDeleteCategory(categoryId)}
@@ -526,48 +540,93 @@ export const HomePage: React.FC = () => {
                 ) : (
                   <h2 className="category-title">
                     {category.name} (
-                    {activeItems.length + completedItems.length})
-                    {completedItems.length > 0 && (
-                      <span className="completed-count">
-                        {" "}
-                        - {completedItems.length} done
-                      </span>
-                    )}
+                    {cartState.completedView === "all"
+                      ? allItems.length
+                      : activeItems.length + completedItems.length}
+                    )
+                    {completedItems.length > 0 &&
+                      cartState.completedView !== "all" && (
+                        <span className="completed-count">
+                          {" "}
+                          - {completedItems.length} done
+                        </span>
+                      )}
                   </h2>
                 )}
 
-                {/* Active Items */}
-                <div className="category-items">
-                  {activeItems.map((item: CartItem) => (
-                    <ItemCard
-                      key={item.asin}
-                      item={item}
-                      checked={cartState.checkedItems[item.asin] || false}
-                      quantity={
-                        cartState.updatedQuantities[item.asin] || item.quantity
-                      }
-                      onCheck={(checked) => handleItemCheck(item.asin, checked)}
-                      onQuantityChange={(quantity) =>
-                        handleQuantityChange(item.asin, quantity)
-                      }
-                      editMode={cartState.editMode}
-                      categories={Object.values(cartState.categories)}
-                      itemCategoryId={cartState.itemCategory[item.asin]}
-                      onMoveItem={(direction) =>
-                        handleMoveItem(item.asin, categoryId, direction)
-                      }
-                      onChangeCategory={(newCatId) =>
-                        handleChangeItemCategory(
-                          item.asin,
-                          categoryId,
-                          newCatId
-                        )
-                      }
-                    />
-                  ))}
-                </div>
+                {/* Items in original order for "all" view */}
+                {cartState.completedView === "all" && (
+                  <div className="category-items">
+                    {allItems.map((item: CartItem) => (
+                      <ItemCard
+                        key={item.asin}
+                        item={item}
+                        checked={cartState.checkedItems[item.asin] || false}
+                        quantity={
+                          cartState.updatedQuantities[item.asin] ||
+                          item.quantity
+                        }
+                        onCheck={(checked) =>
+                          handleItemCheck(item.asin, checked)
+                        }
+                        onQuantityChange={(quantity) =>
+                          handleQuantityChange(item.asin, quantity)
+                        }
+                        editMode={cartState.editMode}
+                        categories={Object.values(cartState.categories)}
+                        itemCategoryId={cartState.itemCategory[item.asin]}
+                        onMoveItem={(direction) =>
+                          handleMoveItem(item.asin, categoryId, direction)
+                        }
+                        onChangeCategory={(newCatId) =>
+                          handleChangeItemCategory(
+                            item.asin,
+                            categoryId,
+                            newCatId
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
 
-                {/* Completed Items */}
+                {/* Active Items for other views */}
+                {cartState.completedView !== "all" && (
+                  <div className="category-items">
+                    {activeItems.map((item: CartItem) => (
+                      <ItemCard
+                        key={item.asin}
+                        item={item}
+                        checked={cartState.checkedItems[item.asin] || false}
+                        quantity={
+                          cartState.updatedQuantities[item.asin] ||
+                          item.quantity
+                        }
+                        onCheck={(checked) =>
+                          handleItemCheck(item.asin, checked)
+                        }
+                        onQuantityChange={(quantity) =>
+                          handleQuantityChange(item.asin, quantity)
+                        }
+                        editMode={cartState.editMode}
+                        categories={Object.values(cartState.categories)}
+                        itemCategoryId={cartState.itemCategory[item.asin]}
+                        onMoveItem={(direction) =>
+                          handleMoveItem(item.asin, categoryId, direction)
+                        }
+                        onChangeCategory={(newCatId) =>
+                          handleChangeItemCategory(
+                            item.asin,
+                            categoryId,
+                            newCatId
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Completed Items for collapse view */}
                 {completedItems.length > 0 &&
                   cartState.completedView === "collapse" && (
                     <details className="completed-section">
@@ -608,43 +667,6 @@ export const HomePage: React.FC = () => {
                         ))}
                       </div>
                     </details>
-                  )}
-
-                {/* Show completed items inline for "all" view */}
-                {completedItems.length > 0 &&
-                  cartState.completedView === "all" && (
-                    <div className="category-items completed-items-inline">
-                      {completedItems.map((item: CartItem) => (
-                        <ItemCard
-                          key={item.asin}
-                          item={item}
-                          checked={cartState.checkedItems[item.asin] || false}
-                          quantity={
-                            cartState.updatedQuantities[item.asin] ||
-                            item.quantity
-                          }
-                          onCheck={(checked) =>
-                            handleItemCheck(item.asin, checked)
-                          }
-                          onQuantityChange={(quantity) =>
-                            handleQuantityChange(item.asin, quantity)
-                          }
-                          editMode={cartState.editMode}
-                          categories={Object.values(cartState.categories)}
-                          itemCategoryId={cartState.itemCategory[item.asin]}
-                          onMoveItem={(direction) =>
-                            handleMoveItem(item.asin, categoryId, direction)
-                          }
-                          onChangeCategory={(newCatId) =>
-                            handleChangeItemCategory(
-                              item.asin,
-                              categoryId,
-                              newCatId
-                            )
-                          }
-                        />
-                      ))}
-                    </div>
                   )}
               </div>
             );
