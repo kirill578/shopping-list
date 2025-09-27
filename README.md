@@ -16,10 +16,12 @@ A mobile-friendly single-page application for viewing and managing shopping cart
 ## How to Use
 
 1. **Enter Cart URL**: Paste your share-a-cart.com link or cart ID
+
    - Format: `https://share-a-cart.com/get/T4GEU` or just `T4GEU`
    - URL persists as `/#T4GEU` for easy sharing
 
-2. **Manage Your List**: 
+2. **Manage Your List**:
+
    - Check items to include them in your selection
    - Adjust quantities using +/- buttons or direct input
    - View real-time price totals for selected items
@@ -50,6 +52,7 @@ npm run build
 ## API Integration
 
 The app integrates with the share-a-cart.com API:
+
 - **Endpoint**: `https://share-a-cart.com/api/get/r/cart/{cartId}`
 - **Validation**: Full Zod schema validation with unknown field tolerance
 - **Error Handling**: Graceful handling of API failures and invalid data
@@ -57,6 +60,7 @@ The app integrates with the share-a-cart.com API:
 ## Browser Support
 
 Works on all modern browsers with support for:
+
 - ES2022+ features
 - CSS Grid and Flexbox
 - Local Storage API
