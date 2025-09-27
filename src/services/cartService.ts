@@ -13,7 +13,7 @@ import {
 
 export class CartService {
   private static readonly API_BASE = "https://share-a-cart.com/api/get/r/cart";
-  private static readonly CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+  private static readonly CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000;
   private static readonly CACHE_KEY_PREFIX = "cart-cache-";
 
   /**
@@ -23,24 +23,30 @@ export class CartService {
     try {
       const cacheKey = `${this.CACHE_KEY_PREFIX}${cartId}`;
       const cached = localStorage.getItem(cacheKey);
-      
+
       if (!cached) {
         return null;
       }
 
       const parsed = JSON.parse(cached);
-      
+
       // Check if cache has expired
-      if (parsed.timestamp && Date.now() - parsed.timestamp > this.CACHE_EXPIRY_MS) {
+      if (
+        parsed.timestamp &&
+        Date.now() - parsed.timestamp > this.CACHE_EXPIRY_MS
+      ) {
         localStorage.removeItem(cacheKey);
         return null;
       }
 
       // Validate cached data with Zod schema
       const result = CartSchema.safeParse(parsed.data);
-      
+
       if (!result.success) {
-        console.warn("Cached cart data failed validation, removing from cache:", result.error);
+        console.warn(
+          "Cached cart data failed validation, removing from cache:",
+          result.error
+        );
         localStorage.removeItem(cacheKey);
         return null;
       }
@@ -69,6 +75,34 @@ export class CartService {
   }
 
   /**
+   * Clear cached cart data
+   */
+  static clearCachedCart(cartId: string): void {
+    try {
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${cartId}`;
+      localStorage.removeItem(cacheKey);
+    } catch (error) {
+      console.error("Error clearing cached cart:", error);
+    }
+  }
+
+  /**
+   * Clear all cached cart data
+   */
+  static clearAllCachedCarts(): void {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith(this.CACHE_KEY_PREFIX)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.error("Error clearing all cached carts:", error);
+    }
+  }
+
+  /**
    * Extract cart ID from share-a-cart URL
    */
   static extractCartIdFromUrl(url: string): string | null {
@@ -88,9 +122,17 @@ export class CartService {
   }
 
   /**
-   * Fetch cart data from API
+   * Fetch cart data from API or cache
    */
   static async fetchCart(cartId: string): Promise<Cart> {
+    // Check cache first
+    const cachedCart = this.getCachedCart(cartId);
+    if (cachedCart) {
+      console.log("Using cached cart data for:", cartId);
+      return cachedCart;
+    }
+
+    console.log("Fetching fresh cart data for:", cartId);
     const url = `${this.API_BASE}/${cartId}`;
 
     try {
@@ -137,6 +179,9 @@ export class CartService {
           `Invalid cart data format. Please check if the cart ID "${cartId}" is correct.`
         );
       }
+
+      // Cache the validated data
+      this.setCachedCart(cartId, result.data);
 
       return result.data;
     } catch (error) {
