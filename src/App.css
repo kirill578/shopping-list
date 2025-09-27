@@ -515,6 +515,31 @@ body {
   outline-offset: 1px;
 }
 
+/* Quantity Display for non-edit mode */
+.quantity-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f7fafc;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.quantity-label {
+  font-size: 0.875rem;
+  color: #4a5568;
+  font-weight: 500;
+}
+
+.quantity-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a202c;
+  min-width: 20px;
+  text-align: center;
+}
+
 /* Loading and Error States */
 .loading {
   display: flex;

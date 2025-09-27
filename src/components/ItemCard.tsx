@@ -147,7 +147,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             <span className="price">{item.price}</span>
           </div>
 
-          {editMode && (
+          {editMode ? (
             <div className="quantity-controls">
               <button
                 type="button"
@@ -177,6 +177,11 @@ export const ItemCard: React.FC<ItemCardProps> = ({
               >
                 +
               </button>
+            </div>
+          ) : (
+            <div className="quantity-display">
+              <span className="quantity-label">Qty:</span>
+              <span className="quantity-value">{quantity}</span>
             </div>
           )}
         </div>
