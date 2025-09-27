@@ -521,7 +521,7 @@ export const HomePage: React.FC = () => {
               visibleItemsByCategory.completed[categoryId] || [];
             const allItems = visibleItemsByCategory.all[categoryId] || [];
             const mixedItems = visibleItemsByCategory.mixed[categoryId] || [];
-            
+
             const hasItems =
               cartState.completedView === "all"
                 ? allItems.length > 0
@@ -529,8 +529,8 @@ export const HomePage: React.FC = () => {
                 ? mixedItems.length > 0
                 : activeItems.length > 0 || completedItems.length > 0;
 
-            if (!category || !hasItems)
-              return null;
+            // Hide empty categories unless in edit mode
+            if (!category || (!hasItems && !cartState.editMode)) return null;
 
             return (
               <div key={categoryId} className="category-section">
@@ -559,7 +559,7 @@ export const HomePage: React.FC = () => {
                       : activeItems.length + completedItems.length}
                     )
                     {completedItems.length > 0 &&
-                      cartState.completedView !== "all" && 
+                      cartState.completedView !== "all" &&
                       cartState.completedView !== "collapse" && (
                         <span className="completed-count">
                           {" "}
@@ -609,8 +609,9 @@ export const HomePage: React.FC = () => {
                 {cartState.completedView === "collapse" && (
                   <div className="category-items">
                     {mixedItems.map((item: CartItem) => {
-                      const isCompleted = cartState.checkedItems[item.asin] || false;
-                      
+                      const isCompleted =
+                        cartState.checkedItems[item.asin] || false;
+
                       if (isCompleted) {
                         return (
                           <ThinItemCard
