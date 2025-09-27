@@ -67,6 +67,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
           </div>
         </div>
       )}
+
       <div className="item-checkbox-container">
         <input
           type="checkbox"
@@ -114,36 +115,38 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             <span className="price">{item.price}</span>
           </div>
 
-          <div className="quantity-controls">
-            <button
-              type="button"
-              className="quantity-btn decrease"
-              onClick={decrementQuantity}
-              disabled={quantity <= 0 || !editMode}
-              aria-label="Decrease quantity"
-            >
-              -
-            </button>
-            <input
-              type="number"
-              className="quantity-input"
-              value={quantity}
-              onChange={handleQuantityChange}
-              min="0"
-              max="999"
-              aria-label="Quantity"
-              disabled={!editMode}
-            />
-            <button
-              type="button"
-              className="quantity-btn increase"
-              onClick={incrementQuantity}
-              aria-label="Increase quantity"
-              disabled={!editMode}
-            >
-              +
-            </button>
-          </div>
+          {editMode && (
+            <div className="quantity-controls">
+              <button
+                type="button"
+                className="quantity-btn decrease"
+                onClick={decrementQuantity}
+                disabled={quantity <= 0 || !editMode}
+                aria-label="Decrease quantity"
+              >
+                -
+              </button>
+              <input
+                type="number"
+                className="quantity-input"
+                value={quantity}
+                onChange={handleQuantityChange}
+                min="0"
+                max="999"
+                aria-label="Quantity"
+                disabled={!editMode}
+              />
+              <button
+                type="button"
+                className="quantity-btn increase"
+                onClick={incrementQuantity}
+                aria-label="Increase quantity"
+                disabled={!editMode}
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 interface TopBarProps {
   editMode: boolean;
@@ -9,6 +9,8 @@ interface TopBarProps {
   totalPrice: string;
   cartCCYS: string;
   onNavigateBack: () => void;
+  onClearAllState: () => void;
+  onClearAllButChecked: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -20,7 +22,22 @@ export const TopBar: React.FC<TopBarProps> = ({
   totalPrice,
   cartCCYS,
   onNavigateBack,
+  onClearAllState,
+  onClearAllButChecked,
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   return (
     <div className="top-bar">
       <div className="top-bar-left">
@@ -56,6 +73,40 @@ export const TopBar: React.FC<TopBarProps> = ({
         <div className="selected-total-top">
           Selected ({checkedCount} items): {cartCCYS}
           {totalPrice}
+        </div>
+        <div className="menu" ref={menuRef}>
+          <button
+            className={`menu-btn`}
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-haspopup="true"
+            aria-expanded={menuOpen}
+          >
+            •••
+          </button>
+          {menuOpen && (
+            <div className="menu-dropdown" role="menu">
+              <button
+                className="menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onClearAllState();
+                }}
+              >
+                Clear all state
+              </button>
+              <button
+                className="menu-item"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onClearAllButChecked();
+                }}
+              >
+                Clear all except checked
+              </button>
+            </div>
+          )}
         </div>
         <button
           className={`edit-mode-btn ${editMode ? "active" : ""}`}

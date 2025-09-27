@@ -88,7 +88,7 @@ export const HomePage: React.FC = () => {
   };
 
   const handleQuantityChange = (asin: string, quantity: number) => {
-    if (!cartState || !cartId) return;
+    if (!cartState || !cartId || !cartState.editMode) return; // prevent change in non-edit mode
 
     const newState = {
       ...cartState,
@@ -115,6 +115,53 @@ export const HomePage: React.FC = () => {
     const newState = { ...cartState, completedView: view };
     setCartState(newState);
     CartService.saveCartState(cartId, newState);
+  };
+
+  const handleClearAllState = () => {
+    if (!cartState || !cartId) return;
+    if (
+      !confirm(
+        "This will remove all your local changes for this cart. Continue?"
+      )
+    )
+      return;
+    localStorage.removeItem(`${cartId}-state`);
+    localStorage.removeItem(`${cartId}-checked`);
+    // Reload fresh from API
+    setLoading(true);
+    CartService.getOrFetchCart(cartId)
+      .then((state) => setCartState(state))
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : String(err))
+      )
+      .finally(() => setLoading(false));
+  };
+
+  const handleClearAllButChecked = () => {
+    if (!cartState || !cartId) return;
+    if (
+      !confirm(
+        "This will reset everything except which items are checked. Continue?"
+      )
+    )
+      return;
+
+    const checkedBackup = { ...cartState.checkedItems };
+
+    localStorage.removeItem(`${cartId}-state`);
+    // keep `${cartId}-checked` purposely (CartService will reapply it)
+    localStorage.setItem(
+      `${cartId}-checked`,
+      JSON.stringify({ checkedItems: checkedBackup, lastUpdated: Date.now() })
+    );
+
+    setLoading(true);
+    CartService.getOrFetchCart(cartId)
+      .then((state) => setCartState(state))
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : String(err))
+      )
+      .finally(() => setLoading(false));
   };
 
   const handleRenameCategory = (categoryId: string) => {
@@ -205,7 +252,7 @@ export const HomePage: React.FC = () => {
     }
 
     const newItem: CartItem = {
-      asin: `custom-${new Date().getTime()}-${Math.random()}`, // Simple unique ID
+      asin: `custom-${new Date().getTime()}-${Math.random()}`,
       title,
       quantity,
       price: "0.00",
@@ -409,6 +456,8 @@ export const HomePage: React.FC = () => {
           totalPrice={totalPrice}
           cartCCYS={cart.cartCCYS}
           onNavigateBack={() => navigate("/")}
+          onClearAllState={handleClearAllState}
+          onClearAllButChecked={handleClearAllButChecked}
         />
         <header className="cart-header">
           <div className="cart-info">
