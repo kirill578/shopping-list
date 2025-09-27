@@ -13,6 +13,60 @@ import {
 
 export class CartService {
   private static readonly API_BASE = "https://share-a-cart.com/api/get/r/cart";
+  private static readonly CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+  private static readonly CACHE_KEY_PREFIX = "cart-cache-";
+
+  /**
+   * Get cached cart data if valid
+   */
+  private static getCachedCart(cartId: string): Cart | null {
+    try {
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${cartId}`;
+      const cached = localStorage.getItem(cacheKey);
+      
+      if (!cached) {
+        return null;
+      }
+
+      const parsed = JSON.parse(cached);
+      
+      // Check if cache has expired
+      if (parsed.timestamp && Date.now() - parsed.timestamp > this.CACHE_EXPIRY_MS) {
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+
+      // Validate cached data with Zod schema
+      const result = CartSchema.safeParse(parsed.data);
+      
+      if (!result.success) {
+        console.warn("Cached cart data failed validation, removing from cache:", result.error);
+        localStorage.removeItem(cacheKey);
+        return null;
+      }
+
+      return result.data;
+    } catch (error) {
+      console.error("Error reading cached cart:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache validated cart data
+   */
+  private static setCachedCart(cartId: string, cart: Cart): void {
+    try {
+      const cacheKey = `${this.CACHE_KEY_PREFIX}${cartId}`;
+      const cacheData = {
+        data: cart,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+    } catch (error) {
+      console.error("Error caching cart:", error);
+    }
+  }
 
   /**
    * Extract cart ID from share-a-cart URL

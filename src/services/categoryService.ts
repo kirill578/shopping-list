@@ -31,91 +31,229 @@ export const defaultCategoryOrder = [
   UNCATEGORIZED_ID,
 ];
 
-const categoryKeywords: Record<string, string[]> = {
-  produce: [
-    "fresh",
-    "organic",
-    "produce",
-    "fruit",
-    "vegetable",
-    "greens",
-    "lettuce",
-    "tomato",
-    "onion",
-    "apple",
-    "banana",
-    "berries",
-    "avocado",
-    "zucchini",
-    "carrots",
-    "cucumber",
-    "pepper",
-    "pineapple",
-    "mango",
-  ],
-  dairy: [
-    "milk",
-    "cheese",
-    "yogurt",
-    "butter",
-    "cream",
-    "eggs",
-    "dairy",
-    "fairlife",
-    "oatly",
-  ],
-  meat: ["beef", "chicken", "pork", "fish", "seafood", "meat", "ground beef"],
-  bakery: ["bread", "bagel", "muffin", "pastry", "bakery", "killer bread"],
-  pantry: [
-    "sauce",
-    "pasta",
-    "rice",
-    "canned",
-    "soup",
-    "spice",
-    "oil",
-    "vinegar",
-    "flour",
-    "sugar",
-    "cereal",
-    "oats",
-  ],
-  frozen: ["frozen", "ice cream", "pizza"],
-  beverages: ["soda", "juice", "water", "tea", "coffee", "beverage", "oatmilk"],
-  snacks: [
-    "chips",
-    "crackers",
-    "cookies",
-    "pretzels",
-    "popcorn",
-    "nuts",
-    "snack",
-    "ritz",
-    "rold gold",
-  ],
-  deli: ["deli", "sliced", "tofurky", "salami", "ham", "turkey"],
-  household: [
-    "cleaner",
-    "soap",
-    "shampoo",
-    "paper towels",
-    "toilet paper",
-    "household",
-  ],
+type CategoryKeywordConfig = {
+  phrases: string[]; // multi-word phrases or hyphenated terms
+  tokens: string[]; // single-word tokens
 };
+
+const categoryKeywordConfig: Record<string, CategoryKeywordConfig> = {
+  // Avoid generic qualifiers like "fresh" and "organic" to reduce false positives
+  produce: {
+    phrases: ["spring mix", "green beans", "bell pepper"],
+    tokens: [
+      "arugula",
+      "lettuce",
+      "tomato",
+      "onion",
+      "apple",
+      "banana",
+      "strawberry",
+      "raspberry",
+      "avocado",
+      "zucchini",
+      "carrot",
+      "cucumber",
+      "pineapple",
+      "mango",
+      "bean",
+      "pepper",
+      // Note: rely on phrases for bell pepper and green beans; keep token "pepper" low-impact
+    ],
+  },
+  dairy: {
+    phrases: ["goat cheese"],
+    tokens: [
+      "milk",
+      "oatmilk",
+      "cheese",
+      "yogurt",
+      "butter",
+      "cream",
+      "egg",
+      "dairy",
+      "fairlife",
+      "oatly",
+      "babybel",
+      "provolone",
+    ],
+  },
+  meat: {
+    phrases: ["ground beef", "lunch meat"],
+    tokens: ["beef", "chicken", "pork", "fish", "seafood", "meat"],
+  },
+  bakery: {
+    phrases: [
+      "killer bread",
+      "sourdough bread",
+      "whole grain bread",
+      "hamburger buns",
+      "hot dog buns",
+      "cheese cake",
+      "strawberry cheesecake",
+    ],
+    tokens: [
+      "bread",
+      "bagel",
+      "muffin",
+      "pastry",
+      "bakery",
+      "cake",
+      "cheesecake",
+      "bun",
+      "buns",
+      "tortilla",
+    ],
+  },
+  pantry: {
+    phrases: [],
+    tokens: [
+      "sauce",
+      "pasta",
+      "rice",
+      "canned",
+      "soup",
+      "spice",
+      "oil",
+      "vinegar",
+      "flour",
+      "sugar",
+      "cereal",
+      "oat",
+    ],
+  },
+  frozen: {
+    phrases: ["ice cream"],
+    tokens: ["frozen", "pizza"],
+  },
+  beverages: {
+    phrases: [],
+    tokens: ["soda", "juice", "water", "tea", "coffee", "beverage", "oatmilk"],
+  },
+  snacks: {
+    phrases: ["rold gold", "fresh stacks"],
+    tokens: [
+      "chips",
+      "cracker",
+      "cookie",
+      "pretzel",
+      "popcorn",
+      "nuts",
+      "snack",
+      "ritz",
+    ],
+  },
+  deli: {
+    phrases: ["deli slices"],
+    tokens: [
+      "deli",
+      "slice",
+      "sliced",
+      "tofurky",
+      "salami",
+      "ham",
+      "turkey",
+      "provolone",
+    ],
+  },
+  household: {
+    phrases: [],
+    tokens: [
+      "cleaner",
+      "soap",
+      "shampoo",
+      "paper",
+      "towels",
+      "toilet",
+      "household",
+    ],
+  },
+};
+
+function normalizeText(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[®™]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function singularize(token: string): string {
+  if (token.endsWith("ies") && token.length > 3) {
+    return token.slice(0, -3) + "y";
+  }
+  if (token.endsWith("es") && token.length > 3) {
+    // handle simple plural forms like "slices" -> "slice"
+    return token.slice(0, -2);
+  }
+  if (token.endsWith("s") && token.length > 3) {
+    return token.slice(0, -1);
+  }
+  return token;
+}
+
+function extractTokens(input: string): Set<string> {
+  const normalized = normalizeText(input);
+  const parts = normalized.split(/\s+/).filter(Boolean);
+  const set = new Set<string>();
+  for (const part of parts) {
+    set.add(part);
+    set.add(singularize(part));
+  }
+  return set;
+}
+
+function countPhraseMatches(normalized: string, phrases: string[]): number {
+  const padded = ` ${normalized} `;
+  let count = 0;
+  for (const phrase of phrases) {
+    const nPhrase = normalizeText(phrase);
+    if (nPhrase.length === 0) continue;
+    if (padded.includes(` ${nPhrase} `)) {
+      count += 1;
+    }
+  }
+  return count;
+}
 
 export class CategoryService {
   static mapItemToCategory(item: CartItem): string {
-    const title = item.title.toLowerCase();
+    const normalizedTitle = normalizeText(item.title);
+    const titleTokens = extractTokens(item.title);
 
-    for (const categoryId in categoryKeywords) {
-      const keywords = categoryKeywords[categoryId];
-      if (keywords.some((keyword) => title.includes(keyword))) {
-        return categoryId;
+    let bestCategory = UNCATEGORIZED_ID;
+    let bestScore = 0;
+    let bestPhraseHits = 0;
+
+    for (const categoryId in categoryKeywordConfig) {
+      const config = categoryKeywordConfig[categoryId];
+
+      // Phrase matches are high-signal
+      const phraseHits = countPhraseMatches(normalizedTitle, config.phrases);
+      let score = phraseHits * 3;
+
+      // Token matches are lower weight
+      for (const token of config.tokens) {
+        const nToken = normalizeText(token);
+        if (nToken && titleTokens.has(nToken)) {
+          score += 1;
+        }
+      }
+
+      if (
+        score > bestScore ||
+        (score === bestScore && phraseHits > bestPhraseHits) ||
+        (score === bestScore &&
+          phraseHits === bestPhraseHits &&
+          defaultCategoryOrder.indexOf(categoryId) <
+            defaultCategoryOrder.indexOf(bestCategory))
+      ) {
+        bestCategory = categoryId;
+        bestScore = score;
+        bestPhraseHits = phraseHits;
       }
     }
 
-    return UNCATEGORIZED_ID;
+    return bestCategory;
   }
 
   static generateNewCategory(name: string) {
