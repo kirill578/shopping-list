@@ -9,7 +9,6 @@ import {
   CategoryService,
   defaultCategories,
   defaultCategoryOrder,
-  UNCATEGORIZED_ID,
 } from "./categoryService";
 
 export class CartService {
@@ -218,20 +217,7 @@ export class CartService {
       }
     }
 
-    // Preserve user selections if we had old state from a previous version
-    if (stored) {
-      newState.checkedItems = { ...stored.checkedItems };
-      newState.updatedQuantities = { ...stored.updatedQuantities };
-
-      // Re-map categories and order, but preserve checks and quantities
-      const currentAsins = new Set(cart.items.map((item) => item.asin));
-      Object.keys(newState.checkedItems).forEach((asin) => {
-        if (!currentAsins.has(asin)) {
-          delete newState.checkedItems[asin];
-          delete newState.updatedQuantities[asin];
-        }
-      });
-    }
+    // Note: stored is null here, so we only use the fallback checked items above
 
     this.saveCartState(cartId, newState);
     return newState;

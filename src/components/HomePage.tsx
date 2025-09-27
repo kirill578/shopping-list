@@ -369,8 +369,7 @@ export const HomePage: React.FC = () => {
   const visibleItemsByCategory = useMemo(() => {
     if (!cartState) return { active: {}, completed: {} };
 
-    const { completedView, checkedItems, itemOrder, itemCategory, cart } =
-      cartState;
+    const { completedView, checkedItems, itemOrder, cart } = cartState;
     const allItems = cart.items.reduce((acc, item) => {
       acc[item.asin] = item;
       return acc;
@@ -490,7 +489,7 @@ export const HomePage: React.FC = () => {
                     },
                   };
                   setCartState(newState);
-                  CartService.saveCartState(cartId, newState);
+                  CartService.saveCartState(cartId!, newState);
                 }
               }}
             >
