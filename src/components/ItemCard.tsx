@@ -132,7 +132,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
             {item.title}
           </h3>
           <div className="item-meta">
-            <span className="item-sku">{item.sku}</span>
+            {item.sku && <span className="item-sku">{item.sku}</span>}
             {item.savingsBool && (
               <span className="savings-badge">
                 {item.savingsPrice && `Save ${item.ccyS}${item.savingsPrice}`}
